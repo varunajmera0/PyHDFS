@@ -34,22 +34,22 @@ Data replication across multiple datanodes is a key factor in ensuring data resi
 </aside>
 
 1. Start Zookeeper:
-    - Zookeeper tracks data node registration.
-    - Removes inactive data nodes.
-    - Provides live data node information to the name node upon request.
+   - Zookeeper tracks data node registration.
+   - Removes inactive data nodes.
+   - Provides live data node information to the name node upon request.
 2. Start DataNode(s):
-    - Data nodes store physical file chunks.
-    - Multiple data nodes can be started for scalability.
+   - Data nodes store physical file chunks.
+   - Multiple data nodes can be started for scalability.
 3. Start NameNode:
-    - The master machine managing metadata and block allocation.
-    - Responsible for coordinating file operations.
+   - The master machine managing metadata and block allocation.
+   - Responsible for coordinating file operations.
 4. Start Metadata Service:
-    - Metadata service captures and stores metadata information received from the name node.
-    - Stores information about files, such as file names and locations.
+   - Metadata service captures and stores metadata information received from the name node.
+   - Stores information about files, such as file names and locations.
 5. Access via Client:
-    - The client serves as the entry point for users.
-    - Interacts with the name node to perform file operations.
-    - Connects with corresponding data nodes to read from or write data to the distributed file system.
+   - The client serves as the entry point for users.
+   - Interacts with the name node to perform file operations.
+   - Connects with corresponding data nodes to read from or write data to the distributed file system.
 
 <aside>
 🏬 **PyHDFS Architecture**
@@ -66,143 +66,123 @@ Data replication across multiple datanodes is a key factor in ensuring data resi
 This guide outlines how to set up and run PyHDFS on an AWS EC2 instance.
 
 > **Prerequisites:**
-> 
+>
 > - Local machine with Git and Python 3.9+ installed
 > - AWS account with an EC2 instance running Amazon Linux
 
 👉 Steps:
 
-1. **Clone the PyHDFS repository:**
-    
+1.  **Clone the PyHDFS repository:**
+
     Clone the PyHDFS repository to your local machine using Git.
-    
-2. Set up the EC2 machine (if using Amazon Linux):
-Run the script `sh install-python-3.9-on-centos.sh`
-    
-    > **install-python-3.9-on-centos.sh**
-    > 
-    
+
+2.  Set up the EC2 machine (if using Amazon Linux):
+    Run the script `sh install-python-3.9-on-centos.sh`
+        > **install-python-3.9-on-centos.sh**
+        >
+
+        ```bash
+        #!/bin/sh
+        sudo yum install gcc openssl-devel bzip2-devel libffi-devel zlib-devel
+        cd /tmp
+        wget https://www.python.org/ftp/python/3.9.6/Python-3.9.6.tgz
+        tar -xvf Python-3.9.6.tgz
+        cd Python-3.9.6
+        ./configure --enable-optimizations
+        sudo make altinstall
+        python3.9 --version
+        sudo yum install python3-pip
+        ```
+3.  **Install Dependencies**: Install RPyC and create an app folder:
+
     ```bash
-    #!/bin/sh
-    sudo yum install gcc openssl-devel bzip2-devel libffi-devel zlib-devel
-    cd /tmp
-    wget https://www.python.org/ftp/python/3.9.6/Python-3.9.6.tgz
-    tar -xvf Python-3.9.6.tgz
-    cd Python-3.9.6
-    ./configure --enable-optimizations
-    sudo make altinstall
-    python3.9 --version
-    sudo yum install python3-pip
-    ```
-    
-3. **Install Dependencies**: Install RPyC and create an app folder:
-    
-    ```bash
-    
+
     pip3 install rpyc
     mkdir app
     ```
-    
-4. **Create Configuration File**: Create a **`config.ini`** file in the **`app/data_node`** folder for both AWS. Adjust the IP addresses and ports as needed:
-    
+
+4.  **Create Configuration File**: Create a **`config.ini`** file in the **`app/data_node`** folder for both AWS. Adjust the IP addresses and ports as needed:
+
     ```bash
     [name_node]
     block_size = 134217728
     replication_factor = 2
     name_name_hosts = localhost:1800
-    
+
     [data_node]
     data_node_hosts = 100.25.217.45:1801,localhost:1802
     data_node_dir_1801 = /path/to/dfs_data/1801
     data_node_dir_1802 = /path/to/dfs_data/1802
-    
+
     [metadata]
     metadata_hosts = localhost:18005
-    
+
     [zookeeper]
     zookeeper_hosts = 100.25.217.45:18861
-    
+
     ```
-    
-5. **Copy Files (Only these 2 files are required. If you want you can copy entire repository)**:
+
+5.  **Copy Files (You can just take these two files. For your reference, the entire repository can also be copied if needed.)**:
     - Create **`data_service/data_node.py`** in the **`app`** folder and copy the content from the repository.
     - Create **`zookeeper/zk.py`** in the **`app`** folder and copy the content from the repository.
-6. **Configure Security Group**:
+6.  **Configure Security Group**:
+
     1. **Go to the AWS Management Console**.
     2. **Navigate to the EC2 dashboard**.
     3. **Select the EC2 instance** that is running your RPyC service.
     4. **Under the "Description" tab**, find the "Security groups" section and click on the security group associated with your instance.
     5. **Click on the "Inbound rules" tab** and then click "Edit inbound rules".
     6. **Add a new rule** to allow traffic on the port your RPyC service is using. For example, if your RPyC service is using port 18812, add a rule with the following settings:
-        - Type: Custom TCP Rule
-        - Protocol: TCP
-        - Port Range: 18812 (or the port your RPyC service is using)
-        - Source: Custom IP, and enter the IP address or range from which you want to allow inbound traffic. If you want to allow traffic from any IP address, you can use **0.0.0.0/0**, but this is less secure.
+       - Type: Custom TCP Rule
+       - Protocol: TCP
+       - Port Range: 18812 (or the port your RPyC service is using)
+       - Source: Custom IP, and enter the IP address or range from which you want to allow inbound traffic. If you want to allow traffic from any IP address, you can use **0.0.0.0/0**, but this is less secure.
     7. **Click "Save rules"** to apply the changes.
-    
+
     ![Screenshot 2024-04-27 at 7.16.20 PM.png](/doc/Screenshot_2024-04-27_at_7.16.20_PM.png)
-    
-7. **Start Services**:
+
+7.  **Start Services**:
     - Start Zookeeper on AWS:
-        
-        ```bash
-        python3 zookeeper/zk.py
-        ```
-        
-        ![Screenshot 2024-04-27 at 11.25.32 PM.png](/doc/Screenshot_2024-04-27_at_11.25.32_PM.png)
-        
+      ```bash
+      python3 zookeeper/zk.py
+      ```
+      ![Screenshot 2024-04-27 at 11.25.32 PM.png](/doc/Screenshot_2024-04-27_at_11.25.32_PM.png)
     - Start DataNodes(AWS + Local System):
-        
-        Run DataNodes on both AWS and the local system for scalability. You can add more DataNodes in the **`config.ini`** file and specify their indices accordingly.
-        Example:
-        
-        ```bash
-        python3 data_service/data_node.py 0 -> on AWS
-        python3 data_service/data_node.py 1 -> on Local System/it can also be on AWS.
-        
-        ```
-        
-        In the **`config.ini`** file, **`data_node_hosts`** is set to **`100.25.217.45:1801,localhost:1802`**, where **`0`** represents **`100.25.217.45:1801`** and **`1`** represents **`localhost:1802`**.
-        
-        You can choose where to run the DataNode instances based on your specific requirements and infrastructure setup. If you decide to run both DataNode instances on AWS, you would need to ensure that the **`config.ini`** file reflects the public IP address of the AWS EC2 instance for the appropriate DataNode host entry.
-        
-        For instance, if both DataNode instances are on AWS, your **`config.ini`** might look like this:
-        
-        ```bash
-        [data_node]
-        data_node_hosts = 100.25.217.45:1801,100.25.217.45:1802
-        data_node_dir_1801 = /path/to/dfs_data/1801
-        data_node_dir_1802 = /path/to/dfs_data/1802
-        ```
-        
-        Where **`100.25.217.45`** represents the public IP address of your AWS EC2 instance. Ensure that the appropriate security group settings are configured to allow communication between the instances as well.
-        
-        ![Screenshot 2024-04-27 at 11.26.23 PM.png](/doc/Screenshot_2024-04-27_at_11.26.23_PM.png)
-        
+      Run DataNodes on both AWS and the local system for scalability. You can add more DataNodes in the **`config.ini`** file and specify their indices accordingly.
+      Example:
+      ```bash
+      python3 data_service/data_node.py 0 -> on AWS
+      python3 data_service/data_node.py 1 -> on Local System/it can also be on AWS.
+
+      ```
+      In the **`config.ini`** file, **`data_node_hosts`** is set to **`100.25.217.45:1801,localhost:1802`**, where **`0`** represents **`100.25.217.45:1801`** and **`1`** represents **`localhost:1802`**.
+      You can choose where to run the DataNode instances based on your specific requirements and infrastructure setup. If you decide to run both DataNode instances on AWS, you would need to ensure that the **`config.ini`** file reflects the public IP address of the AWS EC2 instance for the appropriate DataNode host entry.
+      For instance, if both DataNode instances are on AWS, your **`config.ini`** might look like this:
+      ```bash
+      [data_node]
+      data_node_hosts = 100.25.217.45:1801,100.25.217.45:1802
+      data_node_dir_1801 = /path/to/dfs_data/1801
+      data_node_dir_1802 = /path/to/dfs_data/1802
+      ```
+      Where **`100.25.217.45`** represents the public IP address of your AWS EC2 instance. Ensure that the appropriate security group settings are configured to allow communication between the instances as well.
+      ![Screenshot 2024-04-27 at 11.26.23 PM.png](/doc/Screenshot_2024-04-27_at_11.26.23_PM.png)
     - Start NameNode on Local System:
-        
-        ```bash
-        python3 data_service/name_node.py
-        ```
-        
+      ```bash
+      python3 data_service/name_node.py
+      ```
     - Start Metadata Service on Local System:
-        
-        ```bash
-        python3 metadata_serivce/metadata.py
-        ```
-        
-8. **Store and Retrieve Files on Local System**:
+      ```bash
+      python3 metadata_serivce/metadata.py
+      ```
+8.  **Store and Retrieve Files on Local System**:
     - Use the client to store and retrieve files:
-        
-        ```bash
-        python3 data_service/client.py put <file_path>/<filename> <destination>
-        python3 data_service/client.py get <destination>
-        ```
-        
-        Example -`python3 data_service/client.py put /Users/theflash/Desktop/s3/data_service/10mb-examplefile-com.txt /Users/theflash/Desktop/s3/data/tmp/dfs_data`
-        Example - `python3 data_service/client.py get /Users/theflash/Desktop/s3/data/tmp/dfs_data`
-        
-9. **Stop Services**: Use Ctrl + C to stop services and dump the namespace.
+      ```bash
+      python3 data_service/client.py put <file_path>/<filename> <destination>
+      python3 data_service/client.py get <destination>
+      ```
+      Example -`python3 data_service/client.py put /Users/theflash/Desktop/s3/data_service/10mb-examplefile-com.txt /Users/theflash/Desktop/s3/data/tmp/dfs_data`
+      Example - `python3 data_service/client.py get /Users/theflash/Desktop/s3/data/tmp/dfs_data`
+9.  **Stop Services**: Use Ctrl + C to stop services and dump the namespace.
 
 <aside>
 💻 Running PyHDFS Locally
@@ -212,69 +192,66 @@ Run the script `sh install-python-3.9-on-centos.sh`
 This guide walks you through setting up and running PyHDFS on your local machine.
 
 > **Prerequisites:**
-> 
+>
 > - Local machine with Git and Python 3.9+ installed
 
 👉 Steps:
 
 1. **Clone the PyHDFS repository:**
-    
-    Clone the PyHDFS repository to your local machine using Git.
-    
+
+   Clone the PyHDFS repository to your local machine using Git.
+
 2. **Install Dependencies**: Install RPyC
-    
-    ```bash
-    pip3 install rpyc
-    ```
-    
+
+   ```bash
+   pip3 install rpyc
+   ```
+
 3. Edit config.ini (if necessary):
-    - **Note:** Since everything runs locally, you can likely keep the default hostnames (`localhost`) for most settings.
-        
-        ```bash
-        [name_node]
-        block_size = 134217728
-        replication_factor = 2
-        name_name_hosts = localhost:1800
-        
-        [data_node]
-        data_node_hosts = localhost:1801,localhost:1802
-        data_node_dir_1801 = /Users/theflash/Desktop/s3/data/tmp/dfs_data/1801
-        data_node_dir_1802 = /Users/theflash/Desktop/s3/data/tmp/dfs_data/1802
-        
-        [metadata]
-        metadata_hosts = localhost:18005
-        
-        [zookeeper]
-        zookeeper_hosts = localhost:18861
-        ```
-        
+   - **Note:** Since everything runs locally, you can likely keep the default hostnames (`localhost`) for most settings.
+     ```bash
+     [name_node]
+     block_size = 134217728
+     replication_factor = 2
+     name_name_hosts = localhost:1800
+
+     [data_node]
+     data_node_hosts = localhost:1801,localhost:1802
+     data_node_dir_1801 = /Users/theflash/Desktop/s3/data/tmp/dfs_data/1801
+     data_node_dir_1802 = /Users/theflash/Desktop/s3/data/tmp/dfs_data/1802
+
+     [metadata]
+     metadata_hosts = localhost:18005
+
+     [zookeeper]
+     zookeeper_hosts = localhost:18861
+     ```
 4. **Start PyHDFS services:**
-    - Open a terminal window.
-    - Navigate to your PyHDFS project directory using the `cd` command.
+   - Open a terminal window.
+   - Navigate to your PyHDFS project directory using the `cd` command.
 5. **Start services in this order:**
-    1. **Zookeeper:**
-        
-        `python3 zookeeper/zk.py`
-        
-    2. **DataNode(s):**
-        - You can run multiple DataNodes for local testing.
-        - Start each DataNode with its corresponding index from `data_node_hosts` in `config.ini`:
+   1. **Zookeeper:**
+
+      `python3 zookeeper/zk.py`
+
+   2. **DataNode(s):**
+      - You can run multiple DataNodes for local testing.
+      - Start each DataNode with its corresponding index from `data_node_hosts` in `config.ini`:
         `python3 data_service/data_node.py 0  # for the first DataNode
-         python3 data_service/data_node.py 1  # for the second DataNode (and so on)`
-    3. **NameNode:**
-        
-        `python3 data_service/name_node.py`
-        
-    4. **Metadata service:**
-        
-        `python3 metadata_service/metadata.py`
-        
-    - **Interact with PyHDFS:**
-        - Use the client script to store and retrieve files:
-            - Store a file: `python3 data_service/client.py put <source_file_path> <destination_path>`
-            - Retrieve a file: `python3 data_service/client.py get <destination_path>`
-    - **Stop PyHDFS:**
-        - Use `Ctrl+C` to stop each service individually. This will dump the namespace.
+ python3 data_service/data_node.py 1  # for the second DataNode (and so on)`
+   3. **NameNode:**
+
+      `python3 data_service/name_node.py`
+
+   4. **Metadata service:**
+
+      `python3 metadata_service/metadata.py`
+   - **Interact with PyHDFS:**
+     - Use the client script to store and retrieve files:
+       - Store a file: `python3 data_service/client.py put <source_file_path> <destination_path>`
+       - Retrieve a file: `python3 data_service/client.py get <destination_path>`
+   - **Stop PyHDFS:**
+     - Use `Ctrl+C` to stop each service individually. This will dump the namespace.
 
 <aside>
 💻 PyHDFS TODO List:
